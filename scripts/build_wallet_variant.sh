@@ -100,6 +100,65 @@ release_asset_name() {
     printf '%s\n' "${base_name/electrium-${lower_coin}/Electrium-${coin_code}}"
 }
 
+create_windows_bundle() {
+    local coin_code="$1"
+    local artifact_dir="$2"
+    local bundle_root="$artifact_dir/.windows-release"
+    local readme_path="$bundle_root/README.txt"
+    local version=""
+    local zip_name=""
+    local exe_name=""
+    local portable_name=""
+    local setup_name=""
+
+    shopt -s nullglob
+    local normal_candidates=("$artifact_dir"/Electrium-"$coin_code"-*.exe)
+    shopt -u nullglob
+
+    for candidate in "${normal_candidates[@]}"; do
+        case "$(basename "$candidate")" in
+            *-portable.exe|*-setup.exe)
+                ;;
+            *)
+                exe_name="$(basename "$candidate")"
+                version="${exe_name#Electrium-$coin_code-}"
+                version="${version%.exe}"
+                break
+                ;;
+        esac
+    done
+
+    [[ -n "$version" ]] || {
+        echo "could not determine Windows bundle version for $coin_code" >&2
+        return 1
+    }
+
+    portable_name="Electrium-$coin_code-$version-portable.exe"
+    setup_name="Electrium-$coin_code-$version-setup.exe"
+    zip_name="Electrium-$coin_code-$version-windows.zip"
+
+    mkdir -p "$bundle_root"
+    cp -f "$artifact_dir/$exe_name" "$bundle_root/"
+    cp -f "$artifact_dir/$portable_name" "$bundle_root/"
+    cp -f "$artifact_dir/$setup_name" "$bundle_root/"
+
+    cat >"$readme_path" <<EOF
+Electrium-$coin_code $version Windows package
+
+Files included:
+- $setup_name: Windows installer. Recommended for most users.
+- $exe_name: Standalone executable without installer.
+- $portable_name: Portable executable. Stores its data directory next to the executable.
+EOF
+
+    (
+        cd "$bundle_root"
+        rm -f "../$zip_name"
+        zip -q -r "../$zip_name" "$exe_name" "$portable_name" "$setup_name" "$(basename "$readme_path")"
+    )
+    rm -rf "$bundle_root"
+}
+
 if [[ $# -lt 2 ]]; then
     echo "usage: $0 <COIN_CODE> <PLATFORM> [workspace-root] [artifact-root]" >&2
     exit 1
@@ -158,6 +217,10 @@ fi
 for artifact in "${artifacts[@]}"; do
     cp -f "$artifact" "$ARTIFACT_DIR/$(release_asset_name "$COIN_CODE" "$artifact")"
 done
+
+if [[ "$PLATFORM" == "windows" ]]; then
+    create_windows_bundle "$COIN_CODE" "$ARTIFACT_DIR"
+fi
 popd >/dev/null
 
 echo "Built $COIN_CODE/$PLATFORM into $ARTIFACT_DIR"
