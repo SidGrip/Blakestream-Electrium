@@ -842,12 +842,9 @@ class Transaction:
     def _calc_bip143_shared_txdigest_fields(self) -> BIP143SharedTxDigestFields:
         inputs = self.inputs()
         outputs = self.outputs()
-        # Blake-family signing uses single SHA-256 for the BIP143 digest
-        # components.  Using Bitcoin's double-SHA256 here produces signatures
-        # the Blakecoin-family daemons reject with NULLFAIL.
-        hashPrevouts = bh2u(sha256(b''.join(txin.prevout.serialize_to_network() for txin in inputs)))
-        hashSequence = bh2u(sha256(bfh(''.join(int_to_hex(txin.nsequence, 4) for txin in inputs))))
-        hashOutputs = bh2u(sha256(bfh(''.join(o.serialize_to_network().hex() for o in outputs))))
+        hashPrevouts = bh2u(sha256d(b''.join(txin.prevout.serialize_to_network() for txin in inputs)))
+        hashSequence = bh2u(sha256d(bfh(''.join(int_to_hex(txin.nsequence, 4) for txin in inputs))))
+        hashOutputs = bh2u(sha256d(bfh(''.join(o.serialize_to_network().hex() for o in outputs))))
         return BIP143SharedTxDigestFields(hashPrevouts=hashPrevouts,
                                           hashSequence=hashSequence,
                                           hashOutputs=hashOutputs)
@@ -1938,7 +1935,7 @@ class PartialTransaction(Transaction):
             if (sighash & 0x1f) != Sighash.SINGLE and (sighash & 0x1f) != Sighash.NONE:
                 hashOutputs = bip143_shared_txdigest_fields.hashOutputs
             elif (sighash & 0x1f) == Sighash.SINGLE and txin_index < len(outputs):
-                hashOutputs = bh2u(sha256(outputs[txin_index].serialize_to_network()))
+                hashOutputs = bh2u(sha256d(outputs[txin_index].serialize_to_network()))
             else:
                 hashOutputs = '00' * 32
             outpoint = txin.prevout.serialize_to_network().hex()
@@ -1952,6 +1949,14 @@ class PartialTransaction(Transaction):
             txouts = var_int(len(outputs)) + ''.join(o.serialize_to_network().hex() for o in outputs)
             preimage = nVersion + txins + txouts + nLocktime + nHashType
         return preimage
+
+    def _hash_preimage_for_signing(self, txin_index: int, *, bip143_shared_txdigest_fields=None) -> bytes:
+        txin = self.inputs()[txin_index]
+        preimage = bfh(self.serialize_preimage(txin_index,
+                                               bip143_shared_txdigest_fields=bip143_shared_txdigest_fields))
+        if txin.is_segwit():
+            return sha256d(preimage)
+        return sha256(preimage)
 
     def sign(self, keypairs) -> None:
         # keypairs:  pubkey_hex -> (secret_bytes, is_compressed)
@@ -1976,10 +1981,9 @@ class PartialTransaction(Transaction):
         txin.validate_data(for_signing=True)
         sighash = txin.sighash if txin.sighash is not None else Sighash.ALL
         sighash_type = sighash.to_bytes(length=1, byteorder="big").hex()
-        # Blakecoin-family tx signing hashes the full preimage once for both
-        # SegWit/BIP143 and legacy sighash paths.
-        pre_hash = sha256(bfh(self.serialize_preimage(txin_index,
-                                                      bip143_shared_txdigest_fields=bip143_shared_txdigest_fields)))
+        pre_hash = self._hash_preimage_for_signing(
+            txin_index,
+            bip143_shared_txdigest_fields=bip143_shared_txdigest_fields)
         privkey = ecc.ECPrivkey(privkey_bytes)
         sig = privkey.sign_transaction(pre_hash)
         sig = bh2u(sig) + sighash_type
@@ -2036,7 +2040,7 @@ class PartialTransaction(Transaction):
             sig = signatures[i]
             if bfh(sig) in list(txin.part_sigs.values()):
                 continue
-            pre_hash = sha256(bfh(self.serialize_preimage(i)))
+            pre_hash = self._hash_preimage_for_signing(i)
             sig_string = ecc.sig_string_from_der_sig(bfh(sig[:-2]))
             for recid in range(4):
                 try:

@@ -33,6 +33,7 @@ from electrum_blc import lnpeer
 from electrum_blc import lnchannel
 from electrum_blc import lnutil
 from electrum_blc import bip32 as bip32_utils
+from electrum_blc.crypto import blakecoin_lntx_sighash, blakecoin_segwit_sighash, sha256d
 from electrum_blc.lnutil import SENT, LOCAL, REMOTE, RECEIVED
 from electrum_blc.logging import console_stderr_handler
 from electrum_blc.lnchannel import ChannelState
@@ -211,6 +212,18 @@ class TestFee(ElectrumTestCase):
 
 class TestChannel(ElectrumTestCase):
     maxDiff = 999
+
+    def test_ln_gossip_and_onchain_sighash_helpers_are_split(self):
+        preimage = b"blakecoin-bip143-preimage"
+        self.assertEqual(bitcoin.sha256(preimage), blakecoin_lntx_sighash(preimage))
+        self.assertEqual(sha256d(preimage), blakecoin_segwit_sighash(preimage))
+        self.assertNotEqual(blakecoin_lntx_sighash(preimage), blakecoin_segwit_sighash(preimage))
+
+    def test_commitment_preimage_uses_onchain_segwit_sighash(self):
+        tx = self.alice_channel.get_next_commitment(LOCAL)
+        preimage = bytes.fromhex(tx.serialize_preimage(0))
+        self.assertEqual(sha256d(preimage), blakecoin_segwit_sighash(preimage))
+        self.assertNotEqual(blakecoin_lntx_sighash(preimage), blakecoin_segwit_sighash(preimage))
 
     def assertOutputExistsByValue(self, tx, amt_sat):
         for o in tx.outputs():

@@ -38,7 +38,7 @@ from . import constants, util
 from .util import bfh, bh2u, chunks, TxMinedInfo
 from .invoices import PR_PAID
 from .bitcoin import redeem_script_to_address
-from .crypto import blakecoin_lntx_sighash, sha256
+from .crypto import blakecoin_lntx_sighash, blakecoin_segwit_sighash, sha256
 from .transaction import Transaction, PartialTransaction, TxInput
 from .logging import Logger
 from .lnonion import decode_onion_error, OnionFailureCode, OnionRoutingFailure
@@ -1018,7 +1018,7 @@ class Channel(AbstractChannel):
 
         pending_local_commitment = self.get_next_commitment(LOCAL)
         preimage_hex = pending_local_commitment.serialize_preimage(0)
-        pre_hash = blakecoin_lntx_sighash(bfh(preimage_hex))
+        pre_hash = blakecoin_segwit_sighash(bfh(preimage_hex))
         if not ecc.verify_signature(self.config[REMOTE].multisig_key.pubkey, sig, pre_hash):
             raise LNProtocolWarning(
                 f'failed verifying signature of our updated commitment transaction: '
@@ -1059,7 +1059,7 @@ class Channel(AbstractChannel):
                                                           commit=ctx,
                                                           ctx_output_idx=ctx_output_idx,
                                                           htlc=htlc)
-        pre_hash = blakecoin_lntx_sighash(bfh(htlc_tx.serialize_preimage(0)))
+        pre_hash = blakecoin_segwit_sighash(bfh(htlc_tx.serialize_preimage(0)))
         remote_htlc_pubkey = derive_pubkey(self.config[REMOTE].htlc_basepoint.pubkey, pcp)
         if not ecc.verify_signature(remote_htlc_pubkey, htlc_sig, pre_hash):
             raise LNProtocolWarning(f'failed verifying HTLC signatures: {htlc} {htlc_direction}, rawtx: {htlc_tx.serialize()}')
@@ -1511,7 +1511,7 @@ class Channel(AbstractChannel):
     def signature_fits(self, tx: PartialTransaction) -> bool:
         remote_sig = self.config[LOCAL].current_commitment_signature
         preimage_hex = tx.serialize_preimage(0)
-        msg_hash = blakecoin_lntx_sighash(bfh(preimage_hex))
+        msg_hash = blakecoin_segwit_sighash(bfh(preimage_hex))
         assert remote_sig
         res = ecc.verify_signature(self.config[REMOTE].multisig_key.pubkey, remote_sig, msg_hash)
         return res

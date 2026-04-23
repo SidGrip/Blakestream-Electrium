@@ -328,14 +328,13 @@ def sha256d(x: Union[bytes, str]) -> bytes:
 
 
 def blakecoin_lntx_sighash(x: Union[bytes, str]) -> bytes:
-    """Single SHA-256 hash of a Blakecoin Lightning signature preimage.
-
-    Used for ALL Blakecoin LN signature preimage hashing, both on-chain
-    commitment / HTLC / closing tx sighashes and off-chain gossip signatures.
-    Blakecoin Lightning is intentionally Blakecoin-native and uses single
-    SHA-256 throughout the LN stack.
-    """
+    """Single SHA-256 hash for off-chain Blakecoin Lightning gossip."""
     return sha256(x)
+
+
+def blakecoin_segwit_sighash(x: Union[bytes, str]) -> bytes:
+    """Double SHA-256 hash for on-chain BIP143 witness sighash."""
+    return sha256d(x)
 
 
 def hash_160(x: bytes) -> bytes:

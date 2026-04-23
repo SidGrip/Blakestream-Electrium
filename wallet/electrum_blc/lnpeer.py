@@ -16,7 +16,7 @@ import functools
 import aiorpcx
 from aiorpcx import ignore_after
 
-from .crypto import blakecoin_lntx_sighash, sha256
+from .crypto import blakecoin_lntx_sighash, blakecoin_segwit_sighash, sha256
 from . import bitcoin, util
 from . import ecc
 from .ecc import sig_string_from_r_and_s, der_sig_from_sig_string
@@ -2054,7 +2054,7 @@ class Peer(Logger):
         def verify_signature(tx, sig):
             their_pubkey = chan.config[REMOTE].multisig_key.pubkey
             preimage_hex = tx.serialize_preimage(0)
-            pre_hash = blakecoin_lntx_sighash(bfh(preimage_hex))
+            pre_hash = blakecoin_segwit_sighash(bfh(preimage_hex))
             return ecc.verify_signature(their_pubkey, sig, pre_hash)
 
         async def receive_closing_signed():

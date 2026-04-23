@@ -8,6 +8,7 @@ from electrum_blc.transaction import (convert_raw_tx_to_hex, tx_from_any, Transa
 from electrum_blc.util import bh2u, bfh
 from electrum_blc.bitcoin import (deserialize_privkey, opcodes,
                                   construct_script, construct_witness)
+from electrum_blc.crypto import sha256, sha256d
 from electrum_blc.ecc import ECPrivkey
 from .test_bitcoin import disable_ecdsa_r_value_grinding
 
@@ -94,6 +95,15 @@ class TestTransaction(ElectrumTestCase):
         tx.inputs()[0].num_sig = 1
         tx.update_signatures(signed_blob_signatures)
         self.assertEqual(tx.serialize(), signed_blob)
+
+    def test_legacy_signing_hash_stays_single_sha256(self):
+        tx = tx_from_any("cHNidP8BAFUBAAAAASpcmpT83pj1WBzQAWLGChOTbOt1OJ6mW/OGM7Qk60AxAAAAAAD/////AUBCDwAAAAAAGXapFCMKw3g0BzpCFG8R74QUrpKf6q/DiKwAAAAAAAAA")
+        tx.inputs()[0].script_type = 'p2pkh'
+        tx.inputs()[0].pubkeys = [bfh('02e61d176da16edd1d258a200ad9759ef63adf8e14cd97f53227bae35cdb84d2f6')]
+        tx.inputs()[0].num_sig = 1
+        preimage = bfh(tx.serialize_preimage(0))
+        self.assertEqual(sha256(preimage), tx._hash_preimage_for_signing(0))
+        self.assertNotEqual(sha256d(preimage), tx._hash_preimage_for_signing(0))
 
     def test_tx_setting_locktime_invalidates_ser_cache(self):
         tx = tx_from_any("cHNidP8BAJICAAAAAdAEtnw/IOVkr4oexG2xYnm+Vevsn3J7nbZsGpiBWS8MAQAAAAD9////A2Q5AwAAAAAAF6kUF6jKG6BuNVhq1RilflIDCitepw6H/NEEAAAAAAAXqRQx9SsFxDAaaOWbLB2ely1ZoZ61DYeIbQoAAAAAABYAFItCjFDsC28Z1R3tFaoi//pcInvnI3AZAAABAR+weRIAAAAAABYAFEK0I6qyqoA/lXCEgysQNZvqokaQIgYC9tgRn6/8hlDLEvEg3lKD1HmNim0gGRYwt4x3aJURIq4MqAq7DwEAAAAUAAAAAAAAIgICXYdVjyDIufLQ3yeDA4M8016luFER2SWaGPk6UF8CbuQMqAq7DwEAAAAXAAAAAA==")
@@ -941,6 +951,29 @@ class TestSighashTypes(ElectrumTestCase):
     #Output of Transaction
     txout1 = PartialTxOutput(scriptpubkey=bfh('76a914389ffce9cd9ae88dcc0631e88a821ffdbe9bfe2688ac'), value=900000000)
     txout2 = PartialTxOutput(scriptpubkey=bfh('76a9147480a33f950689af511e6e84c138dbbd3c3ee41588ac'), value=87000000)
+
+    def test_bip143_shared_fields_use_sha256d(self):
+        self.txin.sighash = Sighash.ALL
+        tx = PartialTransaction.from_io(inputs=[self.txin], outputs=[self.txout1, self.txout2], locktime=self.locktime, version=1, BIP69_sort=False)
+        fields = tx._calc_bip143_shared_txdigest_fields()
+        self.assertEqual(bh2u(sha256d(self.txin.prevout.serialize_to_network())), fields.hashPrevouts)
+        self.assertEqual(bh2u(sha256d(bfh('ffffffff'))), fields.hashSequence)
+        self.assertEqual(bh2u(sha256d(self.txout1.serialize_to_network() + self.txout2.serialize_to_network())), fields.hashOutputs)
+        self.assertNotEqual(bh2u(sha256(self.txin.prevout.serialize_to_network())), fields.hashPrevouts)
+
+    def test_bip143_single_output_hash_uses_sha256d(self):
+        self.txin.sighash = Sighash.SINGLE
+        tx = PartialTransaction.from_io(inputs=[self.txin], outputs=[self.txout1, self.txout2], locktime=self.locktime, version=1, BIP69_sort=False)
+        preimage = tx.serialize_preimage(0)
+        self.assertIn(bh2u(sha256d(self.txout1.serialize_to_network())), preimage)
+        self.assertNotIn(bh2u(sha256(self.txout1.serialize_to_network())), preimage)
+
+    def test_segwit_signing_hash_uses_sha256d(self):
+        self.txin.sighash = Sighash.ALL
+        tx = PartialTransaction.from_io(inputs=[self.txin], outputs=[self.txout1, self.txout2], locktime=self.locktime, version=1, BIP69_sort=False)
+        preimage = bfh(tx.serialize_preimage(0))
+        self.assertEqual(sha256d(preimage), tx._hash_preimage_for_signing(0))
+        self.assertNotEqual(sha256(preimage), tx._hash_preimage_for_signing(0))
 
     def test_check_sighash_types_sighash_all(self):
         self.txin.sighash=Sighash.ALL
