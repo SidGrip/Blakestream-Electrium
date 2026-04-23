@@ -1,0 +1,37 @@
+# Python / virtualenv
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Packaging outputs
+build/
+dist/
+artifacts/
+outputs/
+*.AppImage
+*.dmg
+*.exe
+*.msi
+*.zip
+*.tar.gz
+
+# Local runtime state
+.DS_Store
+*.log
+
+# Nested build/cache junk from copied upstream trees
+**/autom4te.cache/
+**/.deps/
+**/.libs/
+**/config.log
+**/config.status
+**/*.o
+**/*.lo
+**/*.la
+**/*.lai
