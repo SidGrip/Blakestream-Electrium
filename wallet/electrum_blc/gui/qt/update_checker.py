@@ -3,15 +3,12 @@
 # file LICENCE or http://www.opensource.org/licenses/mit-license.php
 
 import asyncio
-import base64
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QProgressBar,
                              QHBoxLayout, QPushButton, QDialog)
 
 from electrum_blc import version
-from electrum_blc import constants
-from electrum_blc import ecc
 from electrum_blc.i18n import _
 from electrum_blc.util import make_aiohttp_session
 from electrum_blc.logging import Logger
@@ -20,12 +17,8 @@ from electrum_blc._vendor.distutils.version import LooseVersion
 
 
 class UpdateCheck(QDialog, Logger):
-    url = "https://electrum-blc.org/version"
-    download_url = "https://electrum-blc.org/#download"
-
-    VERSION_ANNOUNCEMENT_SIGNING_KEYS = (
-        "LWZzbv5SbiRRjBDL6dUYRdBX9Dp89RDZgG",
-    )
+    url = "https://api.github.com/repos/SidGrip/Blakestream-Electrium/releases/latest"
+    download_url = "https://github.com/SidGrip/Blakestream-Electrium/releases"
 
     def __init__(self, *, latest_version=None):
         QDialog.__init__(self)
@@ -87,10 +80,10 @@ class UpdateCheck(QDialog, Logger):
                 self.detail_label.setText(_("You can download the new version from {}.").format(url))
             else:
                 self.heading_label.setText('<h2>' + _("Already up to date") + '</h2>')
-                self.detail_label.setText(_("You are already on the latest version of Electrum."))
+                self.detail_label.setText(_("You are already on the latest version of Electrium."))
         else:
             self.heading_label.setText('<h2>' + _("Checking for updates...") + '</h2>')
-            self.detail_label.setText(_("Please wait while Electrum checks for available updates."))
+            self.detail_label.setText(_("Please wait while Electrium checks for available updates."))
 
 
 class UpdateCheckThread(QThread, Logger):
@@ -107,28 +100,10 @@ class UpdateCheckThread(QThread, Logger):
         #       and it's bad not to get an update notification just because we did not wait enough.
         async with make_aiohttp_session(proxy=self.network.proxy, timeout=120) as session:
             async with session.get(UpdateCheck.url) as result:
-                signed_version_dict = await result.json(content_type=None)
-                # example signed_version_dict:
-                # {
-                #     "version": "3.9.9",
-                #     "signatures": {
-                #         "1Lqm1HphuhxKZQEawzPse8gJtgjm9kUKT4": "IA+2QG3xPRn4HAIFdpu9eeaCYC7S5wS/sDxn54LJx6BdUTBpse3ibtfq8C43M7M1VfpGkD5tsdwl5C6IfpZD/gQ="
-                #     }
-                # }
-                version_num = signed_version_dict['version']
-                sigs = signed_version_dict['signatures']
-                for address, sig in sigs.items():
-                    if address not in UpdateCheck.VERSION_ANNOUNCEMENT_SIGNING_KEYS:
-                        continue
-                    sig = base64.b64decode(sig)
-                    msg = version_num.encode('utf-8')
-                    if ecc.verify_message_with_address(address=address, sig65=sig, message=msg,
-                                                       net=constants.BitcoinMainnet):
-                        self.logger.info(f"valid sig for version announcement '{version_num}' from address '{address}'")
-                        break
-                else:
-                    raise Exception('no valid signature for version announcement')
-                return LooseVersion(version_num.strip())
+                release_info = await result.json(content_type=None)
+                version_num = release_info['tag_name'].strip().lstrip('v')
+                self.logger.info(f"latest GitHub release version '{version_num}'")
+                return LooseVersion(version_num)
 
     def run(self):
         if not self.network:

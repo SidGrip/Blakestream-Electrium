@@ -42,7 +42,7 @@ except Exception as e:
 
 from PyQt5.QtGui import QGuiApplication
 from PyQt5.QtWidgets import (QApplication, QSystemTrayIcon, QWidget, QMenu,
-                             QMessageBox)
+                             QMessageBox, QPushButton)
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer, Qt
 import PyQt5.QtCore as QtCore
 
@@ -92,6 +92,13 @@ class OpenFileEventFilter(QObject):
         return False
 
 
+class MacButtonFocusRectFilter(QObject):
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QPushButton):
+            obj.setAttribute(Qt.WA_MacShowFocusRect, False)
+        return False
+
+
 class QElectrumApplication(QApplication):
     new_window_signal = pyqtSignal(str, object)
     quit_signal = pyqtSignal()
@@ -128,6 +135,10 @@ class ElectrumGui(BaseElectrumGui, Logger):
         self.efilter = OpenFileEventFilter(self.windows)
         self.app = QElectrumApplication(sys.argv)
         self.app.installEventFilter(self.efilter)
+        self._mac_button_focus_rect_filter = None
+        if sys.platform == 'darwin':
+            self._mac_button_focus_rect_filter = MacButtonFocusRectFilter(self.app)
+            self.app.installEventFilter(self._mac_button_focus_rect_filter)
         self.app.setWindowIcon(read_QIcon("electrum-blc.png"))
         self._cleaned_up = False
         # timer

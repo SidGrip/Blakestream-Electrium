@@ -8,7 +8,8 @@ from pathlib import Path
 
 TEXT_SUFFIXES = {
     ".py", ".sh", ".desktop", ".md", ".txt", ".cfg", ".ini", ".json",
-    ".yml", ".yaml", ".spec", ".xml", ".xpm", ".rst", ".Dockerfile"
+    ".yml", ".yaml", ".spec", ".xml", ".xpm", ".rst", ".Dockerfile",
+    ".nsi"
 }
 TEXT_NAMES = {
     "Dockerfile", "AppRun", "make_download", "add_cosigner", "run_electrum"
@@ -97,8 +98,8 @@ def patch_constants(workspace: Path, coin: dict) -> None:
     path = workspace / "electrum_blc" / "constants.py"
     text = path.read_text(encoding="utf-8")
 
-    text = re.sub(r'GIT_REPO_URL = ".*?"', 'GIT_REPO_URL = "https://github.com/SidGrip/Blakestream-Electrium-0.15.21"', text)
-    text = re.sub(r'GIT_REPO_ISSUES_URL = ".*?"', 'GIT_REPO_ISSUES_URL = "https://github.com/SidGrip/Blakestream-Electrium-0.15.21/issues"', text)
+    text = re.sub(r'GIT_REPO_URL = ".*?"', 'GIT_REPO_URL = "https://github.com/SidGrip/Blakestream-Electrium"', text)
+    text = re.sub(r'GIT_REPO_ISSUES_URL = ".*?"', 'GIT_REPO_ISSUES_URL = "https://github.com/SidGrip/Blakestream-Electrium/issues"', text)
 
     text = replace_class_attr(text, "BitcoinMainnet", "WIF_PREFIX", f"0x{coin['wif_prefix']:02x}")
     text = replace_class_attr(text, "BitcoinMainnet", "ADDRTYPE_P2PKH", str(coin["p2pkh"]))
@@ -185,14 +186,30 @@ def patch_runtime_identity(workspace: Path, coin: dict) -> None:
     ]
     replace_text_in_tree(workspace, replacements)
     build_sh = workspace / "contrib" / "build-linux" / "appimage" / "build.sh"
-    regex_replace(build_sh, r"-t electrum-appimage-builder-img", f"-t {slug}-appimage-builder-img")
-    regex_replace(build_sh, r"--name electrum-appimage-builder-cont", f"--name {slug}-appimage-builder-cont")
-    text = build_sh.read_text(encoding="utf-8")
-    old = "    electrum-appimage-builder-img \\\n"
-    new = f"    {slug}-appimage-builder-img \\\n"
-    if old not in text:
-        raise RuntimeError(f"Could not patch docker run image in {build_sh}")
-    build_sh.write_text(text.replace(old, new, 1), encoding="utf-8")
+    if build_sh.exists():
+        regex_replace(build_sh, r"-t electrum-appimage-builder-img", f"-t {slug}-appimage-builder-img")
+        regex_replace(build_sh, r"--name electrum-appimage-builder-cont", f"--name {slug}-appimage-builder-cont")
+        text = build_sh.read_text(encoding="utf-8")
+        old = "    electrum-appimage-builder-img \\\n"
+        new = f"    {slug}-appimage-builder-img \\\n"
+        if old not in text:
+            raise RuntimeError(f"Could not patch docker run image in {build_sh}")
+        build_sh.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+    wine_build_sh = workspace / "contrib" / "build-wine" / "build.sh"
+    if wine_build_sh.exists():
+        regex_replace(wine_build_sh, r"-t electrum-wine-builder-img", f"-t {slug}-wine-builder-img")
+        regex_replace(wine_build_sh, r"--name electrum-wine-builder-cont", f"--name {slug}-wine-builder-cont")
+        text = wine_build_sh.read_text(encoding="utf-8")
+        old = "    electrum-wine-builder-img \\\n"
+        new = f"    {slug}-wine-builder-img \\\n"
+        if old not in text:
+            raise RuntimeError(f"Could not patch docker run image in {wine_build_sh}")
+        wine_build_sh.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+    macos_build_sh = workspace / "contrib" / "build-macos" / "build.sh"
+    if macos_build_sh.exists():
+        regex_replace(macos_build_sh, r"--name electrum-macos-builder", f"--name {slug}-macos-builder-cont")
 
 
 def rename_packaging_files(workspace: Path, coin: dict) -> None:
@@ -228,7 +245,11 @@ def main() -> None:
 
     if workspace.exists():
         shutil.rmtree(workspace)
-    shutil.copytree(source_wallet, workspace)
+    shutil.copytree(
+        source_wallet,
+        workspace,
+        ignore=shutil.ignore_patterns(".cache", "build", "dist", "__pycache__", "*.pyc", "*.pyo"),
+    )
 
     copy_overlay_assets(repo_root, coin_code, workspace)
     write_empty_network_files(workspace)

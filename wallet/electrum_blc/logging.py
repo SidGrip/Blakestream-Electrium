@@ -341,7 +341,7 @@ def configure_logging(config: 'SimpleConfig', *, log_to_file: Optional[bool] = N
 
     from . import ELECTRUM_VERSION
     from .constants import GIT_REPO_URL
-    _logger.info(f"Electrum-BLC version: {ELECTRUM_VERSION} - https://electrum-blc.org - {GIT_REPO_URL}")
+    _logger.info(f"Electrum-BLC version: {ELECTRUM_VERSION} - {GIT_REPO_URL}")
     _logger.info(f"Python version: {sys.version}. On platform: {describe_os_version()}")
     _logger.info(f"Logging to file: {str(_logfile_path)}")
     _logger.info(f"Log filters: verbosity {repr(verbosity)}, verbosity_shortcuts {repr(verbosity_shortcuts)}")

@@ -164,6 +164,9 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         self.back_button.setText(_('Back') if self.can_go_back() else _('Cancel'))
         self.next_button = QPushButton(_("Next"), self)
         self.next_button.setDefault(True)
+        if sys.platform == 'darwin':
+            self.back_button.setAttribute(Qt.WA_MacShowFocusRect, False)
+            self.next_button.setAttribute(Qt.WA_MacShowFocusRect, False)
         self.logo = QLabel()
         self.please_wait = QLabel(_("Please wait..."))
         self.please_wait.setAlignment(Qt.AlignCenter)
