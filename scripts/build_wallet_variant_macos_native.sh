@@ -258,17 +258,24 @@ PY
 copy_artifacts() {
     local workspace="$1"
     local artifact_dir="$2"
+    local coin_code="$3"
     local item
+    local base_name
+    local target_name
 
     rm -rf "$artifact_dir"
     mkdir -p "$artifact_dir"
 
     shopt -s nullglob
     for item in "$workspace"/dist/*.dmg; do
-        cp -f "$item" "$artifact_dir"/
+        base_name="$(basename "$item")"
+        target_name="${base_name/electrium-${coin_code,,}/Electrium-${coin_code}}"
+        cp -f "$item" "$artifact_dir/$target_name"
     done
     for item in "$workspace"/dist/*.app; do
-        cp -R "$item" "$artifact_dir"/
+        base_name="$(basename "$item")"
+        target_name="${base_name/electrium-${coin_code,,}/Electrium-${coin_code}}"
+        cp -R "$item" "$artifact_dir/$target_name"
     done
     shopt -u nullglob
 }
@@ -314,7 +321,7 @@ pushd "$WORKSPACE" >/dev/null
 popd >/dev/null
 
 update_shared_cache "$WORKSPACE" "$SHARED_CACHE_ROOT"
-copy_artifacts "$WORKSPACE" "$ARTIFACT_DIR"
+copy_artifacts "$WORKSPACE" "$ARTIFACT_DIR" "$COIN_CODE"
 
 artifact_found=0
 shopt -s nullglob

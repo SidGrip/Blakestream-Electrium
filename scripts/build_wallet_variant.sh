@@ -90,6 +90,16 @@ remove_path_force() {
     return 1
 }
 
+release_asset_name() {
+    local coin_code="$1"
+    local source_path="$2"
+    local lower_coin="${coin_code,,}"
+    local base_name
+
+    base_name="$(basename "$source_path")"
+    printf '%s\n' "${base_name/electrium-${lower_coin}/Electrium-${coin_code}}"
+}
+
 if [[ $# -lt 2 ]]; then
     echo "usage: $0 <COIN_CODE> <PLATFORM> [workspace-root] [artifact-root]" >&2
     exit 1
@@ -145,7 +155,9 @@ if [[ ${#artifacts[@]} -eq 0 ]]; then
     exit 1
 fi
 
-cp -f "${artifacts[@]}" "$ARTIFACT_DIR"/
+for artifact in "${artifacts[@]}"; do
+    cp -f "$artifact" "$ARTIFACT_DIR/$(release_asset_name "$COIN_CODE" "$artifact")"
+done
 popd >/dev/null
 
 echo "Built $COIN_CODE/$PLATFORM into $ARTIFACT_DIR"
