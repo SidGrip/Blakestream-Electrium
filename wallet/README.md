@@ -11,9 +11,6 @@ Homepage: https://electrum-blc.org/
 
 ## Getting started
 
-_(If you've come here looking to simply run Electrum-BLC,
-[you may download it here](https://electrum-blc.org/#download).)_
-
 Electrum-BLC itself is pure Python, and so are most of the required dependencies,
 but not everything. The following sections describe how to run from source, but here
 is a TL;DR:
