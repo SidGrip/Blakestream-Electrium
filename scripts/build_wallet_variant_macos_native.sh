@@ -72,6 +72,28 @@ can_skip_brew_installs() {
     command -v msgfmt >/dev/null 2>&1
 }
 
+required_python_version() {
+    python3 - "$WORKSPACE/contrib/osx/make_osx.sh" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+match = re.search(r'^PYTHON_VERSION=(.+)$', text, re.MULTILINE)
+if not match:
+    raise SystemExit("failed to locate PYTHON_VERSION")
+print(match.group(1).strip())
+PY
+}
+
+python_runtime_matches() {
+    local expected="$1"
+    local found=""
+
+    found="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))' 2>/dev/null || true)"
+    [[ -n "$found" && "$found" == "$expected" ]]
+}
+
 prime_sudo() {
     if sudo -n true 2>/dev/null; then
         return 0
@@ -259,22 +281,24 @@ copy_artifacts() {
     local workspace="$1"
     local artifact_dir="$2"
     local coin_code="$3"
+    local coin_code_lower
     local item
     local base_name
     local target_name
 
+    coin_code_lower="$(printf '%s\n' "$coin_code" | tr '[:upper:]' '[:lower:]')"
     rm -rf "$artifact_dir"
     mkdir -p "$artifact_dir"
 
     shopt -s nullglob
     for item in "$workspace"/dist/*.dmg; do
         base_name="$(basename "$item")"
-        target_name="${base_name/electrium-${coin_code,,}/Electrium-${coin_code}}"
+        target_name="${base_name/electrium-${coin_code_lower}/Electrium-${coin_code}}"
         cp -f "$item" "$artifact_dir/$target_name"
     done
     for item in "$workspace"/dist/*.app; do
         base_name="$(basename "$item")"
-        target_name="${base_name/electrium-${coin_code,,}/Electrium-${coin_code}}"
+        target_name="${base_name/electrium-${coin_code_lower}/Electrium-${coin_code}}"
         cp -R "$item" "$artifact_dir/$target_name"
     done
     shopt -u nullglob
@@ -312,7 +336,13 @@ setup_brew_env
 if [[ -z "${ELECTRIUM_SKIP_BREW_INSTALLS:-}" ]] && can_skip_brew_installs; then
     export ELECTRIUM_SKIP_BREW_INSTALLS=1
 fi
-prime_sudo
+PYTHON_VERSION_EXPECTED="$(required_python_version)"
+if python_runtime_matches "$PYTHON_VERSION_EXPECTED"; then
+    export ELECTRIUM_SKIP_PYTHON_PKG_INSTALL=1
+fi
+if [[ "${ELECTRIUM_SKIP_BREW_INSTALLS:-0}" != "1" || "${ELECTRIUM_SKIP_PYTHON_PKG_INSTALL:-0}" != "1" ]]; then
+    prime_sudo
+fi
 export PYINSTALLER_CONFIG_DIR="$WORKSPACE/.pyinstaller"
 export PIP_CACHE_DIR="$WORKSPACE/.pip-cache"
 
