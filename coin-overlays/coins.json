@@ -26,7 +26,7 @@
     "regtest_p2sh": 7,
     "regtest_segwit_hrp": "rblc",
     "genesis": "000000ba5cae4648b1a2b823f84cc3424e5d96d7234b39c6bb42800b2c7639be",
-    "testnet_genesis": "000000ba5cae4648b1a2b823f84cc3424e5d96d7234b39c6bb42800b2c7639be",
+    "testnet_genesis": "0000006a6b8058247f5b0edb1b34df7d34ae6c963c49da21b62a4b6558ac94dc",
     "regtest_genesis": "000000ba5cae4648b1a2b823f84cc3424e5d96d7234b39c6bb42800b2c7639be",
     "coinbase_maturity": 100,
     "max_supply_btc": "7000000000"
@@ -58,7 +58,7 @@
     "regtest_p2sh": 7,
     "regtest_segwit_hrp": "rbbtc",
     "genesis": "000000dcb4434e2148558a0a5c71e5c06d864accef97d75ac1c031405deb3371",
-    "testnet_genesis": "0000007381461a5b95ec93210ec6fcf6d3328e7f34113da11a4657d06caef7ad",
+    "testnet_genesis": "00000052d978f26d698e0c4dbce9f8139a69f2fbda37715149146776aeb70d5b",
     "regtest_genesis": "000000dcb4434e2148558a0a5c71e5c06d864accef97d75ac1c031405deb3371",
     "coinbase_maturity": 100,
     "max_supply_btc": "21000000"
